@@ -3,6 +3,8 @@
  */
 package com.xtec.daz.mediaplayer;
 
+import android.content.Context;
+import android.media.MediaMetadataRetriever;
 import android.media.MediaPlayer;
 import android.os.Handler;
 import android.support.v7.app.AppCompatActivity;
@@ -10,6 +12,7 @@ import android.os.Bundle;
 import android.view.View;
 import android.widget.VideoView;
 import android.os.Environment;
+import android.media.AudioManager;
 
 import java.io.File;
 import java.io.InputStream;
@@ -28,6 +31,11 @@ import java.net.Socket;
  * Main class of the application
  */
 public class MainActivity extends AppCompatActivity {
+    public static final int SUCCESS = 1;
+    public static final int NO_FILE_NUMBER = 2;
+    public static final int FILE_NOT_FOUND = 3;
+    public static final int FILE_ALREADY_LOADED = 4;
+    public static final int FILE_ALREADY_PLAYING = 5;
 
     private ServerSocket serverSocket; // Server socket object
     Thread serverThread = null;
@@ -39,8 +47,13 @@ public class MainActivity extends AppCompatActivity {
     // 2 video views. Whilst one is playing the other will be hidden loading
     VideoView shownView;
     VideoView hiddenView;
+
+    MediaPlayer mediaPlayer;
+
     int loadedVideo; // Which video file has been loaded (on hiddenView)
     int playingVideo; // Which video file is playing (on shownView)
+    String loadedVideoFPS;
+    String playingVideoFPS;
 
     //TODO: path may change?
     private static final String STORAGE_PATH = Environment.getExternalStorageDirectory().getPath() + "/Download";
@@ -57,6 +70,16 @@ public class MainActivity extends AppCompatActivity {
         shownView = (VideoView) findViewById(R.id.videoView1);
         hiddenView = (VideoView) findViewById(R.id.videoView2);
 
+        // Way to access mediaplayer of videoview if needed
+//        MediaPlayer mMediaPlayer;
+//        shownView.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
+//            @Override
+//            public void onPrepared(MediaPlayer mp) {
+//                mMediaPlayer = mp;
+//
+//            }
+//        });
+
         // Create handler to deal with incoming messages from clients
         messageReceivedHandler = new Handler();
 
@@ -68,6 +91,7 @@ public class MainActivity extends AppCompatActivity {
 
     /**
      * Activity is finished or being destroyed by the system TODO: more clean up stuff?
+     * TODO: handle disconnect
      */
     @Override
     protected void onStop() {
@@ -141,6 +165,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+
     /**
      * Media Player control thread. Receives commands from communication thread, and acts
      * accordingly. Only runs when a message is received
@@ -155,7 +180,7 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void run() {
             String command = msg.substring(0, 2); // Get command
-            VideoView temp = null;
+            int rc; // Return code
 
             switch (command) {
                 // Load command
@@ -165,39 +190,36 @@ public class MainActivity extends AppCompatActivity {
 
                 // Play command
                 case "PL":
-                    // Need file number to see if video is currently on shown view
-                    int fileNumber = -1;
-                    try {
-                        fileNumber = Integer.parseInt(msg.substring(2, msg.length())); // Get file number
-                    } catch (NumberFormatException e) {
-                        out.println("ERROR: specify file number");
-                        break;
-                    }
+                    rc = loadVideo(msg);
 
-                    if (fileNumber == playingVideo) {
+                    if (rc == FILE_ALREADY_PLAYING) {
+
+                        // Remove possible loop that may have been set on view
+                        shownView.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
+                            @Override
+                            public void onCompletion(MediaPlayer mp) {
+                                //Do nothing. Resets loop handler if there is one
+                            }
+                        });
+
                         // Video is already on shown view. Play.
+                        shownView.setVisibility(View.VISIBLE);
                         shownView.start();
                         break;
                     }
 
-                    if (!loadVideo(msg)) { // Try to load video
+                    if (rc != SUCCESS) {
                         break;
                     }
 
                     // Switch the views
-                    shownView.stopPlayback();
-                    temp = shownView;
-                    shownView = hiddenView;
-                    hiddenView = temp;
-
-                    shownView.setVisibility(View.VISIBLE);
-                    hiddenView.setVisibility(View.INVISIBLE);
+                    switchViews();
 
                     // Remove possible loop that may have been set on view
                     shownView.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
                         @Override
                         public void onCompletion(MediaPlayer mp) {
-                            //Do nothing
+                            //Do nothing. Resets loop handler if there is one
                         }
                     });
 
@@ -207,29 +229,9 @@ public class MainActivity extends AppCompatActivity {
 
                 // Loop command
                 case "LP":
-                    // If the message is LP without numbers //TODO: Remove. Have to specify file number
-                    if (msg.length() == command.length()) {
-                        // Loop currently loaded file
-                        shownView.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
-                            @Override
-                            public void onCompletion(MediaPlayer mp) {
-                                mp.seekTo(1);
-                                mp.start();
-                            }
-                        });
-                        break;
-                    }
+                    rc = loadVideo(msg);
 
-                    // Need file number to see if video is currently on shown view
-                    fileNumber = -1;
-                    try {
-                        fileNumber = Integer.parseInt(msg.substring(2, msg.length())); // Get file number
-                    } catch (NumberFormatException e) {
-                        out.println("ERROR: specify file number");
-                        break;
-                    }
-
-                    if (fileNumber == playingVideo) {
+                    if (rc == FILE_ALREADY_PLAYING) {
                         // Video is already on shown view. Loop.
                         shownView.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
                             @Override
@@ -241,17 +243,12 @@ public class MainActivity extends AppCompatActivity {
                         break;
                     }
 
-                    if (!loadVideo(msg)) { // Try to load video
+                    if (rc != SUCCESS) {
                         break;
                     }
-                    // Switch the views
-                    shownView.stopPlayback();
-                    temp = shownView;
-                    shownView = hiddenView;
-                    hiddenView = temp;
 
-                    shownView.setVisibility(View.VISIBLE);
-                    hiddenView.setVisibility(View.INVISIBLE);
+                    // Switch the views
+                    switchViews();
 
                     shownView.start(); // Play the loaded video
                     playingVideo = Integer.parseInt(msg.substring(2, msg.length())); // Save which video is playing
@@ -268,8 +265,9 @@ public class MainActivity extends AppCompatActivity {
 
                 // Stop command
                 case "ST":
-                    shownView.seekTo(1);
                     shownView.pause();
+                    shownView.seekTo(1);
+                    shownView.setVisibility(View.INVISIBLE);
                     break;
 
                 // Pause command
@@ -277,6 +275,57 @@ public class MainActivity extends AppCompatActivity {
                     shownView.pause();
                     break;
 
+                // Video mute command
+                case "VM":
+                    int n = -1;
+                    try {
+                        n = Integer.parseInt(msg.substring(2, msg.length())); // Get command number
+                    } catch (NumberFormatException e) {
+                        out.println("ERROR: specify a command number (0 for off, 1 for on)");
+                        break;
+                    }
+                    // Show video
+                    if (n == 1) {
+                        shownView.setAlpha(1f);
+                        hiddenView.setAlpha(1f);
+                    }
+                    // Hide video
+                    else if (n == 0) {
+                        shownView.setAlpha(0f);
+                        hiddenView.setAlpha(0f);
+
+                    }
+                    else {
+                        out.println("ERROR: incorrect number. 0 for off, 1 for on");
+                    }
+                    break;
+
+                case "AM":
+                    n = -1;
+                    try {
+                        n = Integer.parseInt(msg.substring(2, msg.length())); // Get command number
+                    } catch (NumberFormatException e) {
+                        out.println("ERROR: specify a command number (0 for off, 1 for on)");
+                        break;
+                    }
+
+                    AudioManager audio = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+                    // Unmute
+                    if (n == 1) {
+                        audio.setStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_UNMUTE, 0);
+                    }
+                    // Mute
+                    else if (n == 0) {
+                        audio.setStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_MUTE, 0);
+                    }
+                    else {
+                        out.println("ERROR: incorrect number. 0 for off, 1 for on");
+                    }
+                    break;
+
+                case "SE":
+
+                    break;
                 default:
                     out.println("ERROR: Command not recognised");
             }
@@ -284,34 +333,64 @@ public class MainActivity extends AppCompatActivity {
     }
 
     /**
+     * Switches between the VideoViews, making one visible and the other invisible
+     */
+    void switchViews() {
+        VideoView temp = null; // Temp VideoView used in switch of shown and hidden views
+        shownView.stopPlayback();
+        temp = shownView;
+        shownView = hiddenView;
+        hiddenView = temp;
+
+        shownView.setVisibility(View.VISIBLE);
+        hiddenView.setVisibility(View.INVISIBLE);
+    }
+
+    /**
      * Finds and loads a video to the hidden video view.
      * Overwrites any buffered video in the hidden view.
      *
      * @param msg message sent by the client
-     * @return true if success, false if failure TODO: return status codes eg video playing, fail, stuff to clean up code above
+     * @return integer status code of result
      */
-    public boolean loadVideo(String msg) {
+    public int loadVideo(String msg) {
         int fileNumber = -1;
         try {
             fileNumber = Integer.parseInt(msg.substring(2, msg.length())); // Get file number
         } catch (NumberFormatException e) {
             out.println("ERROR: specify file number");
-            return false;
+            return NO_FILE_NUMBER;
         }
 
-        if (fileNumber == loadedVideo) return true; // Already loaded video
+        if (fileNumber == playingVideo) return FILE_ALREADY_PLAYING; // File is already on shown view
+        if (fileNumber == loadedVideo) return SUCCESS; // Already loaded video
 
         String path = getFilePath(fileNumber); // Get file path
         if (path.equals("")) {
-            out.println("ERROR: File does not exist");
-            return false;
+            out.println("ERROR: File can't be found");
+            return FILE_NOT_FOUND;
         }
+
+//        hiddenView.setOnPreparedListener( new MediaPlayer.OnPreparedListener() {
+//            @Override
+//            public void onPrepared(MediaPlayer mp) {
+//                //use a global variable to get the object
+//                mediaPlayer = mp;
+//                mediaPlayer.get
+//            }
+//        });
 
         // Load the video to the hidden view
         hiddenView.setVideoPath(path);
         hiddenView.seekTo(1); // Buffer video by moving ahead 1ms
         loadedVideo = fileNumber;
-        return true;
+
+//        // Get frame rate of loaded video
+//        MediaMetadataRetriever retriever = new MediaMetadataRetriever();
+//        retriever.setDataSource(path);
+//        loadedVideoFPS = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_CAPTURE_FRAMERATE);
+
+        return SUCCESS;
     }
 
     /**
