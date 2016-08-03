@@ -4,7 +4,6 @@
 package com.xtec.daz.mediaplayer;
 
 import android.content.Context;
-import android.media.MediaMetadataRetriever;
 import android.media.MediaPlayer;
 import android.os.Handler;
 import android.support.v7.app.AppCompatActivity;
@@ -31,11 +30,14 @@ import java.net.Socket;
  * Main class of the application
  */
 public class MainActivity extends AppCompatActivity {
+    public static final int FAILURE = -1;
     public static final int SUCCESS = 1;
     public static final int NO_FILE_NUMBER = 2;
     public static final int FILE_NOT_FOUND = 3;
     public static final int FILE_ALREADY_LOADED = 4;
     public static final int FILE_ALREADY_PLAYING = 5;
+
+    public static int FRAME_RATE = 30;
 
     private ServerSocket serverSocket; // Server socket object
     Thread serverThread = null;
@@ -52,8 +54,6 @@ public class MainActivity extends AppCompatActivity {
 
     int loadedVideo; // Which video file has been loaded (on hiddenView)
     int playingVideo; // Which video file is playing (on shownView)
-    String loadedVideoFPS;
-    String playingVideoFPS;
 
     //TODO: path may change?
     private static final String STORAGE_PATH = Environment.getExternalStorageDirectory().getPath() + "/Download";
@@ -252,7 +252,7 @@ public class MainActivity extends AppCompatActivity {
 
                     shownView.start(); // Play the loaded video
                     playingVideo = Integer.parseInt(msg.substring(2, msg.length())); // Save which video is playing
-
+                    // On completion of video, go back to the start
                     shownView.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
                         @Override
                         public void onCompletion(MediaPlayer mp) {
@@ -271,7 +271,7 @@ public class MainActivity extends AppCompatActivity {
                     break;
 
                 // Pause command
-                case "PA":
+                case "PA": // TODO: pausing mid video, then playing from beginning, there is some audio lag
                     shownView.pause();
                     break;
 
@@ -300,6 +300,7 @@ public class MainActivity extends AppCompatActivity {
                     }
                     break;
 
+                // Audio mute command
                 case "AM":
                     n = -1;
                     try {
@@ -323,13 +324,69 @@ public class MainActivity extends AppCompatActivity {
                     }
                     break;
 
+                // Seek command
                 case "SE":
+                    int seekTimeMs = 0;
+                    seekTimeMs = seekVideo(msg.substring(2, msg.length()));
+
+                    if (seekTimeMs != FAILURE) {
+                        shownView.seekTo(seekTimeMs); // Seek to calculated position
+                    }
 
                     break;
+
                 default:
                     out.println("ERROR: Command not recognised");
             }
         }
+    }
+
+    /**
+     * Parses seek command and returns number of ms to seek to in video
+     * @param seekTime seek command string
+     * @return number of milliseconds to seek to
+     */
+    int seekVideo(String seekTime){
+        if (!seekTime.matches("\\d{2}:\\d{2}:\\d{2}:\\d{2}")) {
+            // Seek time format incorrect
+            out.println("ERROR: Seek time format incorrect. Ensure in form SEhh:mm:ss:ff");
+            return FAILURE;
+        }
+        int seekTimeMs = 0;
+        // Split string into time parts
+        String parts[] = seekTime.split(":");
+        int hours = Integer.parseInt(parts[0]); // Get number of hours
+        if (hours < 0 || hours > 23) {
+            out.println("ERROR: hh must be between 00 and 23");
+            return FAILURE;
+        }
+        seekTimeMs = seekTimeMs + (hours * 3600000); // Add hour seek time in milliseconds
+
+        int mins = Integer.parseInt(parts[1]); // Get number of mins
+        if (mins < 0 || hours > 59) {
+            out.println("ERROR: mm must be between 00 and 59");
+            return FAILURE;
+        }
+        seekTimeMs = seekTimeMs + (mins * 60000); // Add min seek time in ms
+
+        int secs = Integer.parseInt(parts[2]); // Get number of secs
+        if (secs < 0 || secs > 59) {
+            out.println("ERROR: ss must be between 00 and 59");
+            return FAILURE;
+        }
+        seekTimeMs = seekTimeMs + (secs * 1000); // Add secs seek time in ms
+
+        int frames = Integer.parseInt(parts[3]); // Get number of frames
+        if (frames < 0 || frames > FRAME_RATE) {
+            out.println("ERROR: ff must be between 00 and frame rate (" + FRAME_RATE + ")");
+            return FAILURE;
+        }
+
+        if (frames != 0) { // Avoid dividing by zero which will blow up the universe
+            seekTimeMs = seekTimeMs + (1000 / frames); // Add number of frames in ms
+        }
+
+        return seekTimeMs;
     }
 
     /**
@@ -355,11 +412,25 @@ public class MainActivity extends AppCompatActivity {
      */
     public int loadVideo(String msg) {
         int fileNumber = -1;
-        try {
-            fileNumber = Integer.parseInt(msg.substring(2, msg.length())); // Get file number
-        } catch (NumberFormatException e) {
-            out.println("ERROR: specify file number");
-            return NO_FILE_NUMBER;
+        int seekPos = 0;
+        // Check if load command also includes a seek command
+        if (msg.matches("(.*)SE\\d{2}:\\d{2}:\\d{2}:\\d{2}")) {
+            try {
+                seekPos = msg.indexOf(":"); // Finds index of first ":" in msg
+                seekPos = seekPos - 2; // Get to beginning of seek time (2 characters before first ":")
+                fileNumber = Integer.parseInt(msg.substring(2, seekPos - 2)); // Get file number
+            } catch (NumberFormatException e) {
+                out.println("ERROR: specify file number");
+                return NO_FILE_NUMBER;
+            }
+        }
+        else {
+            try {
+                fileNumber = Integer.parseInt(msg.substring(2, msg.length())); // Get file number
+            } catch (NumberFormatException e) {
+                out.println("ERROR: specify file number");
+                return NO_FILE_NUMBER;
+            }
         }
 
         if (fileNumber == playingVideo) return FILE_ALREADY_PLAYING; // File is already on shown view
@@ -371,24 +442,21 @@ public class MainActivity extends AppCompatActivity {
             return FILE_NOT_FOUND;
         }
 
-//        hiddenView.setOnPreparedListener( new MediaPlayer.OnPreparedListener() {
-//            @Override
-//            public void onPrepared(MediaPlayer mp) {
-//                //use a global variable to get the object
-//                mediaPlayer = mp;
-//                mediaPlayer.get
-//            }
-//        });
-
         // Load the video to the hidden view
         hiddenView.setVideoPath(path);
-        hiddenView.seekTo(1); // Buffer video by moving ahead 1ms
-        loadedVideo = fileNumber;
 
-//        // Get frame rate of loaded video
-//        MediaMetadataRetriever retriever = new MediaMetadataRetriever();
-//        retriever.setDataSource(path);
-//        loadedVideoFPS = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_CAPTURE_FRAMERATE);
+        // If we are seeking to a specific point in the loaded video
+        if (msg.matches("(.*)SE\\d{2}:\\d{2}:\\d{2}:\\d{2}")) {
+            int seekTime = seekVideo(msg.substring(seekPos, msg.length()));
+            if (seekTime != FAILURE) {
+                hiddenView.seekTo(seekTime); // Seek to specified point in loaded video
+            }
+            else hiddenView.seekTo(1); // Incorrect seek command. Load video anyway.
+        }
+
+        else hiddenView.seekTo(1); // Buffer video by moving ahead 1ms
+
+        loadedVideo = fileNumber;
 
         return SUCCESS;
     }
