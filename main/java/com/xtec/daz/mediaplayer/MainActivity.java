@@ -5,18 +5,26 @@ package com.xtec.daz.mediaplayer;
 
 import android.content.Context;
 import android.media.MediaPlayer;
+import android.os.Environment;
 import android.os.Handler;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.widget.VideoView;
-import android.os.Environment;
 import android.media.AudioManager;
 
 import java.io.File;
 import java.io.InputStream;
 import java.io.PrintWriter;
+import java.net.InetAddress;
+import java.net.NetworkInterface;
+import java.net.SocketException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Enumeration;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Locale;
 
 import java.io.BufferedReader;
@@ -56,7 +64,8 @@ public class MainActivity extends AppCompatActivity {
     int playingVideo; // Which video file is playing (on shownView)
 
     //TODO: path may change?
-    private static final String STORAGE_PATH = Environment.getExternalStorageDirectory().getPath() + "/Download";
+    //private static final String STORAGE_PATH = Environment.getExternalStorageDirectory().getPath() + "/Download";
+    private static final String STORAGE_PATH = "/mnt/udisk";
 
     /**
      * Activity launched. Initialise activity
@@ -65,6 +74,15 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        try {
+            Runtime.getRuntime().exec("ifconfig eth0 up");
+            Runtime.getRuntime().exec("ifconfig eth0 dhcp start");
+        } catch (IOException e) {
+            Log.e("OLE","Runtime Error: "+e.getMessage());
+            e.printStackTrace();
+        }
+
+        String ipAddress = getIPAddress(true);
 
         // Get a reference to the VideoView instances.
         shownView = (VideoView) findViewById(R.id.videoView1);
@@ -185,7 +203,12 @@ public class MainActivity extends AppCompatActivity {
             switch (command) {
                 // Load command
                 case "LD":
-                    loadVideo(msg);
+                    if (loadVideo(msg) == SUCCESS) {
+                        out.println("OK");
+                    }
+                    if (loadVideo(msg) == FILE_ALREADY_PLAYING) {
+                        out.println("File already playing");
+                    }
                     break;
 
                 // Play command
@@ -193,6 +216,10 @@ public class MainActivity extends AppCompatActivity {
                     rc = loadVideo(msg);
 
                     if (rc == FILE_ALREADY_PLAYING) {
+
+                        // Video is already on shown view. Play.
+                        shownView.setVisibility(View.VISIBLE);
+                        shownView.start();
 
                         // Remove possible loop that may have been set on view
                         shownView.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
@@ -202,9 +229,7 @@ public class MainActivity extends AppCompatActivity {
                             }
                         });
 
-                        // Video is already on shown view. Play.
-                        shownView.setVisibility(View.VISIBLE);
-                        shownView.start();
+                        out.println("OK");
                         break;
                     }
 
@@ -213,7 +238,7 @@ public class MainActivity extends AppCompatActivity {
                     }
 
                     // Switch the views
-                    switchViews();
+                    switchViewsAndStart();
 
                     // Remove possible loop that may have been set on view
                     shownView.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
@@ -223,8 +248,8 @@ public class MainActivity extends AppCompatActivity {
                         }
                     });
 
-                    shownView.start(); // Play the loaded video
                     playingVideo = Integer.parseInt(msg.substring(2, msg.length())); // Save which video is playing
+                    out.println("OK");
                     break;
 
                 // Loop command
@@ -232,6 +257,9 @@ public class MainActivity extends AppCompatActivity {
                     rc = loadVideo(msg);
 
                     if (rc == FILE_ALREADY_PLAYING) {
+
+                        shownView.start(); // Play the loaded video
+
                         // Video is already on shown view. Loop.
                         shownView.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
                             @Override
@@ -240,6 +268,7 @@ public class MainActivity extends AppCompatActivity {
                                 mp.start();
                             }
                         });
+                        out.println("OK");
                         break;
                     }
 
@@ -247,10 +276,9 @@ public class MainActivity extends AppCompatActivity {
                         break;
                     }
 
-                    // Switch the views
-                    switchViews();
+                    // Switch the views and play video 
+                    switchViewsAndStart();
 
-                    shownView.start(); // Play the loaded video
                     playingVideo = Integer.parseInt(msg.substring(2, msg.length())); // Save which video is playing
                     // On completion of video, go back to the start
                     shownView.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
@@ -260,7 +288,7 @@ public class MainActivity extends AppCompatActivity {
                             mp.start();
                         }
                     });
-
+                    out.println("OK");
                     break;
 
                 // Stop command
@@ -268,11 +296,13 @@ public class MainActivity extends AppCompatActivity {
                     shownView.pause();
                     shownView.seekTo(1);
                     shownView.setVisibility(View.INVISIBLE);
+                    out.println("OK");
                     break;
 
                 // Pause command
                 case "PA": // TODO: pausing mid video, then playing from beginning, there is some audio lag
                     shownView.pause();
+                    out.println("OK");
                     break;
 
                 // Video mute command
@@ -297,7 +327,9 @@ public class MainActivity extends AppCompatActivity {
                     }
                     else {
                         out.println("ERROR: incorrect number. 0 for off, 1 for on");
+                        break;
                     }
+                    out.println("OK");
                     break;
 
                 // Audio mute command
@@ -321,7 +353,9 @@ public class MainActivity extends AppCompatActivity {
                     }
                     else {
                         out.println("ERROR: incorrect number. 0 for off, 1 for on");
+                        break;
                     }
+                    out.println("OK");
                     break;
 
                 // Seek command
@@ -331,8 +365,9 @@ public class MainActivity extends AppCompatActivity {
 
                     if (seekTimeMs != FAILURE) {
                         shownView.seekTo(seekTimeMs); // Seek to calculated position
-                    }
+                        out.println("OK");
 
+                    }
                     break;
 
                 default:
@@ -390,17 +425,25 @@ public class MainActivity extends AppCompatActivity {
     }
 
     /**
-     * Switches between the VideoViews, making one visible and the other invisible
+     * Switches between the VideoViews, making one visible and the other invisible, and play
      */
-    void switchViews() {
+    void switchViewsAndStart() {
         VideoView temp = null; // Temp VideoView used in switch of shown and hidden views
+
+        // Set the view behind to be visable. This removes flash of black frame
+        hiddenView.setVisibility(View.VISIBLE);
+        hiddenView.start(); // Play the loaded video
+
         shownView.stopPlayback();
+
         temp = shownView;
         shownView = hiddenView;
         hiddenView = temp;
 
-        shownView.setVisibility(View.VISIBLE);
+        // Hide the previous video
         hiddenView.setVisibility(View.INVISIBLE);
+
+
     }
 
     /**
@@ -471,10 +514,24 @@ public class MainActivity extends AppCompatActivity {
         //TODO: it probably won't be this path. Change to sd card or whatever
         File storage = new File(STORAGE_PATH);
         File[] listOfFiles = storage.listFiles(); // Get list of every file in directory
+
+        if (listOfFiles == null) {
+            out.println("ERROR: Storage not found");
+            return path;
+        }
+
         // Loops through every file trying to find one that matches filenumber
         for (int i = 0; i < listOfFiles.length; i++) {
             // Remove file extenstion
-            String file = listOfFiles[i].toString().substring(0, listOfFiles[i].toString().lastIndexOf('.'));
+            String file;
+            try {
+                file = listOfFiles[i].toString().substring(0, listOfFiles[i].toString().lastIndexOf('.'));
+            }
+            catch (Exception e) {
+                // File doesn't have extension. Move on
+                continue;
+            }
+
             // Get file number
             int j = file.length();
             while (j > 0 && Character.isDigit(file.charAt(j - 1))) {
@@ -493,6 +550,38 @@ public class MainActivity extends AppCompatActivity {
             }
         }
         return path;
+    }
+
+    /**
+     * Get IP address from first non-localhost interface
+     * @param useIPv4  true=return ipv4, false=return ipv6
+     * @return  address or empty string
+     */
+    public static String getIPAddress(boolean useIPv4) {
+        try {
+            List<NetworkInterface> interfaces = Collections.list(NetworkInterface.getNetworkInterfaces());
+            for (NetworkInterface intf : interfaces) {
+                List<InetAddress> addrs = Collections.list(intf.getInetAddresses());
+                for (InetAddress addr : addrs) {
+                    if (!addr.isLoopbackAddress()) {
+                        String sAddr = addr.getHostAddress();
+                        //boolean isIPv4 = InetAddressUtils.isIPv4Address(sAddr);
+                        boolean isIPv4 = sAddr.indexOf(':')<0;
+
+                        if (useIPv4) {
+                            if (isIPv4)
+                                return sAddr;
+                        } else {
+                            if (!isIPv4) {
+                                int delim = sAddr.indexOf('%'); // drop ip6 zone suffix
+                                return delim<0 ? sAddr.toUpperCase() : sAddr.substring(0, delim).toUpperCase();
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Exception ex) { } // for now eat exceptions
+        return "";
     }
 
     /**
