@@ -1,0 +1,27 @@
+~inc:header.inc~
+<table style="border:#eee outset 0px; background-color:#eee; border-spacing:8px">
+    <td style="width:80px; vertical-align:top; border:#888 inset 0px; background-color:#eee; padding:0px">~inc:menu1.inc~</td>
+    <td>
+        <form action="oth.html" method=get>
+            <td style="width:600px; height:300px; vertical-align:top; border:#888 inset 0px; padding:0px; background-color:#fff;">
+                <table style="border:#FFF outset 0px; border-spacing:2px">
+                    <tr>
+                        <td style="height:22px;vertical-align:middle;border:#888 inset 0px; padding:4px">
+                            <h2>Others:</h2>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="height:24px;vertical-align:middle;border:#888 inset 0px; padding:4px">
+                            <h3>Auto Start:</h3>
+                        </td>
+                        <td style="height:24px;vertical-align:middle;border:#888 inset 0px; padding:4px">
+                            <input type="checkbox" name="ASMode" value="1" ~ASMode~>After booting, play track:
+                            <input id="ASTrk" type=number name="ASTrk" value="~ASTrk~" autocomplete=off min="0" max="9999" step=1>&nbsp</td>
+                    </tr>
+                </table>&nbsp
+                <input id="submit" type=submit name="submit" value="Save">&nbsp&nbsp
+                <i1>Save settings to device</i1>
+        </form>
+        </td>
+    </td>
+</table>~inc:footer.inc~

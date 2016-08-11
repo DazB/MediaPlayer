@@ -14,6 +14,8 @@ import android.view.View;
 import android.widget.VideoView;
 import android.media.AudioManager;
 
+import com.xtec.daz.mediaplayer.Server.HTTPServer;
+
 import java.io.File;
 import java.io.InputStream;
 import java.io.PrintWriter;
@@ -53,6 +55,8 @@ public class MainActivity extends AppCompatActivity {
     Socket clientSocket = null; // Server side client socket reference
     PrintWriter out = null; // Output stream to the client to send messages
     Handler messageReceivedHandler; // Handler to handle client communication
+
+    private static HTTPServer server; // HTTP server. Uses NanoHTTPD.
 
     // 2 video views. Whilst one is playing the other will be hidden loading
     VideoView shownView;
@@ -104,6 +108,13 @@ public class MainActivity extends AppCompatActivity {
         // Start new thread to listen for client
         this.serverThread = new Thread(new ServerThread());
         this.serverThread.start();
+
+        // Create instance of HTTP server
+        try {
+            server = new HTTPServer(getApplicationContext());
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
 
     }
 
@@ -276,7 +287,8 @@ public class MainActivity extends AppCompatActivity {
                         break;
                     }
 
-                    // Switch the views and play video 
+                    // Switch the views and play video
+
                     switchViewsAndStart();
 
                     playingVideo = Integer.parseInt(msg.substring(2, msg.length())); // Save which video is playing
