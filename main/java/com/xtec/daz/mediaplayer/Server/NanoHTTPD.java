@@ -249,7 +249,7 @@ public abstract class NanoHTTPD {
      * Provides rudimentary support for cookies. Doesn't support 'path',
      * 'secure' nor 'httpOnly'. Feel free to improve it and/or add unsupported
      * features.
-     * 
+     *
      * @author LordFokas
      */
     public class CookieHandler implements Iterable<String> {
@@ -274,7 +274,7 @@ public abstract class NanoHTTPD {
         /**
          * Set a cookie with an expiration date from a month ago, effectively
          * deleting it on the client side.
-         * 
+         *
          * @param name
          *            The cookie name.
          */
@@ -289,7 +289,7 @@ public abstract class NanoHTTPD {
 
         /**
          * Read a cookie from the HTTP Headers.
-         * 
+         *
          * @param name
          *            The cookie's name.
          * @return The cookie's value if it exists, null otherwise.
@@ -304,7 +304,7 @@ public abstract class NanoHTTPD {
 
         /**
          * Sets a cookie.
-         * 
+         *
          * @param name
          *            The cookie's name.
          * @param value
@@ -319,7 +319,7 @@ public abstract class NanoHTTPD {
         /**
          * Internally used by the webserver to add all queued cookies into the
          * Response's HTTP Headers.
-         * 
+         *
          * @param response
          *            The Response object to which headers the queued cookies
          *            will be added.
@@ -1248,7 +1248,7 @@ public abstract class NanoHTTPD {
          * This method will only return the first value for a given parameter.
          * You will want to use getParameters if you expect multiple values for
          * a given key.
-         * 
+         *
          * @deprecated use {@link #getParameters()} instead.
          */
         @Deprecated
@@ -1265,7 +1265,7 @@ public abstract class NanoHTTPD {
 
         /**
          * Adds the files in the request body to the files map.
-         * 
+         *
          * @param files
          *            map to modify
          */
@@ -1273,14 +1273,14 @@ public abstract class NanoHTTPD {
 
         /**
          * Get the remote ip address of the requester.
-         * 
+         *
          * @return the IP address.
          */
         String getRemoteIpAddress();
 
         /**
          * Get the remote hostname of the requester.
-         * 
+         *
          * @return the hostname.
          */
         String getRemoteHostName();
@@ -1348,15 +1348,16 @@ public abstract class NanoHTTPD {
 
             REDIRECT(301, "Moved Permanently"),
             /**
-             * Many user agents mishandle 302 in ways that violate the RFC1945 spec (i.e., redirect a POST to a GET).
-             * 303 and 307 were added in RFC2616 to address this.  You should prefer 303 and 307 unless the calling
-             * user agent does not support 303 and 307 functionality
+             * Many user agents mishandle 302 in ways that violate the RFC1945
+             * spec (i.e., redirect a POST to a GET). 303 and 307 were added in
+             * RFC2616 to address this. You should prefer 303 and 307 unless the
+             * calling user agent does not support 303 and 307 functionality
              */
             @Deprecated
             FOUND(302, "Found"),
             REDIRECT_SEE_OTHER(303, "See Other"),
             NOT_MODIFIED(304, "Not Modified"),
-            TEMPORARY_REDIRECT(307,"Temporary Redirect"),
+            TEMPORARY_REDIRECT(307, "Temporary Redirect"),
 
             BAD_REQUEST(400, "Bad Request"),
             UNAUTHORIZED(401, "Unauthorized"),
@@ -1424,7 +1425,7 @@ public abstract class NanoHTTPD {
             @Override
             public void write(int b) throws IOException {
                 byte[] data = {
-                    (byte) b
+                        (byte) b
                 };
                 write(data, 0, 1);
             }
@@ -1532,7 +1533,7 @@ public abstract class NanoHTTPD {
 
         /**
          * Indicate to close the connection after the Response has been sent.
-         * 
+         *
          * @param close
          *            {@code true} to hint connection closing, {@code false} to
          *            let connection be closed by client.
@@ -1671,7 +1672,7 @@ public abstract class NanoHTTPD {
          * Sends the body to the specified OutputStream. The pending parameter
          * limits the maximum amounts of bytes sent unless it is -1, in which
          * case everything is sent.
-         * 
+         *
          * @param outputStream
          *            the OutputStream to send data to
          * @param pending
@@ -1853,7 +1854,7 @@ public abstract class NanoHTTPD {
     /**
      * logger to log to.
      */
-    public static final Logger LOG = Logger.getLogger(NanoHTTPD.class.getName());
+    private static final Logger LOG = Logger.getLogger(NanoHTTPD.class.getName());
 
     /**
      * Hashtable mapping (String)FILENAME_EXTENSION -> (String)MIME_TYPE
@@ -1873,8 +1874,8 @@ public abstract class NanoHTTPD {
     }
 
     @SuppressWarnings({
-        "unchecked",
-        "rawtypes"
+            "unchecked",
+            "rawtypes"
     })
     private static void loadMimeTypes(Map<String, String> result, String resourceName) {
         try {
@@ -1954,7 +1955,7 @@ public abstract class NanoHTTPD {
 
     /**
      * Get MIME type from file name extension, if possible
-     * 
+     *
      * @param uri
      *            the string representing a file
      * @return the connected mime/type
@@ -2041,7 +2042,7 @@ public abstract class NanoHTTPD {
     /**
      * create a instance of the client handler, subclasses can return a subclass
      * of the ClientHandler.
-     * 
+     *
      * @param finalAccept
      *            the socket the cleint is connected to
      * @param inputStream
@@ -2055,7 +2056,7 @@ public abstract class NanoHTTPD {
     /**
      * Instantiate the server runnable, can be overwritten by subclasses to
      * provide a subclass of the ServerRunnable.
-     * 
+     *
      * @param timeout
      *            the socet timeout to use.
      * @return the server runnable.
@@ -2068,7 +2069,7 @@ public abstract class NanoHTTPD {
      * Decode parameters from a URL, handing the case where a single parameter
      * name might have been supplied several times, by return lists of values.
      * In general these lists will contain a single element.
-     * 
+     *
      * @param parms
      *            original <b>NanoHTTPD</b> parameters values, as passed to the
      *            <code>serve()</code> method.
@@ -2086,7 +2087,7 @@ public abstract class NanoHTTPD {
      * Decode parameters from a URL, handing the case where a single parameter
      * name might have been supplied several times, by return lists of values.
      * In general these lists will contain a single element.
-     * 
+     *
      * @param queryString
      *            a query string pulled from the URL.
      * @return a map of <code>String</code> (parameter name) to
@@ -2114,7 +2115,7 @@ public abstract class NanoHTTPD {
 
     /**
      * Decode percent encoded <code>String</code> values.
-     * 
+     *
      * @param str
      *            the percent encoded <code>String</code>
      * @return expanded form of the input, for example "foo%20bar" becomes
@@ -2137,7 +2138,7 @@ public abstract class NanoHTTPD {
      */
     @SuppressWarnings("static-method")
     protected boolean useGzipWhenAccepted(Response r) {
-        return r.getMimeType() != null && r.getMimeType().toLowerCase().contains("text/");
+        return r.getMimeType() != null && (r.getMimeType().toLowerCase().contains("text/") || r.getMimeType().toLowerCase().contains("/json"));
     }
 
     public final int getListeningPort() {
@@ -2220,7 +2221,7 @@ public abstract class NanoHTTPD {
      * <p/>
      * <p/>
      * (By default, this returns a 404 "Not Found" plain text error response.)
-     * 
+     *
      * @param session
      *            The HTTP session
      * @return HTTP response, see class Response for details
@@ -2248,7 +2249,7 @@ public abstract class NanoHTTPD {
      * <p/>
      * <p/>
      * (By default, this returns a 404 "Not Found" plain text error response.)
-     * 
+     *
      * @param uri
      *            Percent-decoded URI without parameters, for example
      *            "/index.cgi"
@@ -2268,7 +2269,7 @@ public abstract class NanoHTTPD {
 
     /**
      * Pluggable strategy for asynchronously executing requests.
-     * 
+     *
      * @param asyncRunner
      *            new strategy for handling threads.
      */
@@ -2278,7 +2279,7 @@ public abstract class NanoHTTPD {
 
     /**
      * Pluggable strategy for creating and cleaning up temporary files.
-     * 
+     *
      * @param tempFileManagerFactory
      *            new strategy for handling temp files.
      */
@@ -2288,7 +2289,7 @@ public abstract class NanoHTTPD {
 
     /**
      * Start the server.
-     * 
+     *
      * @throws IOException
      *             if the socket is in use.
      */
@@ -2305,7 +2306,7 @@ public abstract class NanoHTTPD {
 
     /**
      * Start the server.
-     * 
+     *
      * @param timeout
      *            timeout to use for socket connections.
      * @param daemon
