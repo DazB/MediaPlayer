@@ -72,7 +72,7 @@ public class HTTPServer extends NanoHTTPD {
                     context.getResources().getIdentifier("x_sml",
                             "raw", context.getPackageName()));
 
-            return new NanoHTTPD.Response(Response.Status.OK, MIME_GIF, buffer, 3958); // 3958 is the number of bytes logo is
+            return new NanoHTTPD.Response(Response.Status.OK, MIME_GIF, buffer, 3958); // 3958 is the number of bytes of logo
 
         } else if (uri.contains("index.html")) {
 

@@ -4,6 +4,7 @@
 package com.xtec.daz.mediaplayer;
 
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.media.MediaPlayer;
 import android.os.Environment;
 import android.os.Handler;
@@ -52,6 +53,7 @@ public class MainActivity extends AppCompatActivity {
     private ServerSocket serverSocket; // Server socket object
     Thread serverThread = null;
     public static final int SERVERPORT = 6000;
+
     Socket clientSocket = null; // Server side client socket reference
     PrintWriter out = null; // Output stream to the client to send messages
     Handler messageReceivedHandler; // Handler to handle client communication
@@ -71,6 +73,9 @@ public class MainActivity extends AppCompatActivity {
     //private static final String STORAGE_PATH = Environment.getExternalStorageDirectory().getPath() + "/Download";
     private static final String STORAGE_PATH = "/mnt/udisk";
 
+    // Stores all media player settings
+    public static final String PREFS_NAME = "MediaPlayerSettings";
+
     /**
      * Activity launched. Initialise activity
      */
@@ -78,29 +83,38 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        // Access saved network information
+        SharedPreferences settings;
+        SharedPreferences.Editor editor;
+        settings = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        editor = settings.edit();
+
+        // If IP settings are not saved, then set to all network settings to default
+        if (!settings.contains("IP")) {
+            editor.putString("IP", "192.168.1.0");
+            editor.putString("SN", "255.255.255.0");
+            editor.putString("GW", "192.168.1.254");
+            editor.commit();
+        }
+
+        // Get network settings
+        String ipAddress = settings.getString("IP", "192.168.1.0");
+        String netmask = settings.getString("SN", "255.255.255.0");
+        String gateway = settings.getString("GW", "192.168.1.254");
+
+        // Initialise ethernet
         try {
             Runtime.getRuntime().exec("ifconfig eth0 up");
-            Runtime.getRuntime().exec("ifconfig eth0 dhcp start");
+            Runtime.getRuntime().exec("ifconfig eth0 " + ipAddress + " netmask " + netmask + " gw " + gateway);
         } catch (IOException e) {
             Log.e("OLE","Runtime Error: "+e.getMessage());
             e.printStackTrace();
         }
 
-        String ipAddress = getIPAddress(true);
-
         // Get a reference to the VideoView instances.
         shownView = (VideoView) findViewById(R.id.videoView1);
         hiddenView = (VideoView) findViewById(R.id.videoView2);
-
-        // Way to access mediaplayer of videoview if needed
-//        MediaPlayer mMediaPlayer;
-//        shownView.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
-//            @Override
-//            public void onPrepared(MediaPlayer mp) {
-//                mMediaPlayer = mp;
-//
-//            }
-//        });
 
         // Create handler to deal with incoming messages from clients
         messageReceivedHandler = new Handler();
@@ -115,7 +129,6 @@ public class MainActivity extends AppCompatActivity {
         } catch (IOException e) {
             e.printStackTrace();
         }
-
     }
 
     /**
@@ -454,7 +467,6 @@ public class MainActivity extends AppCompatActivity {
 
         // Hide the previous video
         hiddenView.setVisibility(View.INVISIBLE);
-
 
     }
 

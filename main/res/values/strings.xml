@@ -1,33 +1,3 @@
 <resources>
     <string name="app_name">MediaPlayer</string>
-
-    <!-- index.html -->
-    <string name="FWNum">1234</string>
-    <string name="DevDesc">This is the shit</string>
-
-    <!-- net.html -->
-    <string name="NBName">NBName</string>
-    <string name="IP">localhost</string>
-    <string name="SN">SN</string>
-    <string name="GW">GW</string>
-    <string name="DNS1">DNS1</string>
-    <string name="DNS2">DNS2</string>
-
-    <!-- din.html -->
-    <string name="DI1OnSel0"></string>
-    <string name="DI1OnSel1"></string>
-    <string name="DI1OnSel2"></string>
-    <string name="DI1OnSel3"></string>
-    <string name="DI1OnSel4"></string>
-    <string name="DI1OnSel5"></string>
-    <string name="DI1OnSel6"></string>
-    <string name="DI1OnSel7"></string>
-    <string name="DI1OnTrk"></string>
-    <string name="DI1OnIg"></string>
-
-    <!-- oth.html -->
-    <string name="ASMode">ASMode</string>
-    <string name="ASTrk">ASTrk</string>
-
-
 </resources>
